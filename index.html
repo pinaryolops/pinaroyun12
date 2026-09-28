@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Runner</title>
+<style>
+  :root{
+    --sky-top:#ff9a56;
+    --sky-mid:#ff6b9d;
+    --sky-bottom:#c86dd7;
+    --accent:#ffd93d;
+    --accent-2:#4ecdc4;
+    --ink:#1a1440;
+    --panel:#ffffffee;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{
+    margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+    font-family:'Segoe UI', system-ui, -apple-system, sans-serif;
+    background:linear-gradient(to bottom, var(--sky-top), var(--sky-mid) 55%, var(--sky-bottom));
+    touch-action:none;
+    overscroll-behavior:none;
+    user-select:none;
+  }
+  #canvasHolder{position:fixed; inset:0;}
+  canvas{display:block; width:100%; height:100%;}
+
+  /* ---- HUD ---- */
+  #hud{
+    position:fixed; top:0; left:0; right:0;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    padding:18px 20px;
+    pointer-events:none;
+    z-index:5;
+  }
+  .hudLeft{display:flex; gap:10px;}
+  .hudRight{display:flex; gap:10px; align-items:flex-start;}
+  .hudBox{
+    background:var(--panel);
+    border-radius:16px;
+    padding:10px 18px;
+    box-shadow:0 6px 0 rgba(26,20,64,0.25);
+    color:var(--ink);
+  }
+  #scoreBox{font-size:1.6rem; font-weight:800; letter-spacing:0.5px;}
+  #scoreBox span{font-size:0.75rem; font-weight:600; display:block; color:#8a83b0; margin-bottom:-4px;}
+  #coinBox{font-size:1.6rem; font-weight:800; letter-spacing:0.5px; white-space:nowrap;}
+  #coinBox span{font-size:0.75rem; font-weight:600; display:block; color:#8a83b0; margin-bottom:-4px;}
+  #speedBox{font-size:1.1rem; font-weight:700; text-align:right;}
+  #speedBox span{font-size:0.7rem; font-weight:600; display:block; color:#8a83b0; margin-bottom:-2px;}
+  #pauseBtn{
+    pointer-events:auto;
+    background:var(--panel);
+    border:none;
+    border-radius:16px;
+    width:48px; height:48px;
+    box-shadow:0 6px 0 rgba(26,20,64,0.25);
+    color:var(--ink);
+    font-size:1.3rem;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    padding:0;
+  }
+  #pauseBtn:active{transform:translateY(4px); box-shadow:0 2px 0 rgba(26,20,64,0.25);}
+
+  /* ---- Overlays ---- */
+  .overlay{
+    position:fixed; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    z-index:10;
+    background:radial-gradient(circle at 50% 30%, rgba(255,255,255,0.08), rgba(20,10,40,0.55));
+    backdrop-filter:blur(2px);
+  }
+  .hidden{display:none !important;}
+  .card{
+    background:var(--panel);
+    border-radius:28px;
+    padding:36px 32px 30px;
+    max-width:420px;
+    width:88%;
+    text-align:center;
+    box-shadow:0 16px 0 rgba(26,20,64,0.25), 0 30px 60px rgba(0,0,0,0.3);
+    color:var(--ink);
+  }
+  .titleWord{
+    font-size:2.4rem;
+    font-weight:900;
+    line-height:1.05;
+    background:linear-gradient(90deg, #ff6b9d, #ffd93d 50%, #4ecdc4);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    margin:0 0 4px;
+  }
+  .subtitle{font-size:0.95rem; color:#6b6490; margin-bottom:22px; font-weight:600;}
+  .controlsRow{
+    display:flex; gap:14px; justify-content:center; margin-bottom:26px; flex-wrap:wrap;
+  }
+  .controlChip{
+    background:#f2f0fb; border-radius:14px; padding:10px 14px; font-size:0.78rem;
+    font-weight:700; color:#4a4470; display:flex; flex-direction:column; align-items:center; gap:4px;
+    width:88px;
+  }
+  .controlChip .icon{font-size:1.4rem;}
+  .bigBtn{
+    background:linear-gradient(135deg, var(--accent-2), #45b8b0);
+    color:#fff;
+    border:none;
+    border-radius:18px;
+    padding:16px 40px;
+    font-size:1.2rem;
+    font-weight:800;
+    letter-spacing:0.5px;
+    cursor:pointer;
+    box-shadow:0 8px 0 #2e8b84;
+    transition:transform 0.05s;
+  }
+  .bigBtn:active{transform:translateY(6px); box-shadow:0 2px 0 #2e8b84;}
+  .bigBtn.alt{
+    background:linear-gradient(135deg, #ff6b9d, #e94f82);
+    box-shadow:0 8px 0 #b8285a;
+  }
+  .bigBtn.alt:active{box-shadow:0 2px 0 #b8285a;}
+
+  #playerNameInput{
+    display:block;
+    width:100%;
+    padding:13px 16px;
+    margin-bottom:18px;
+    border-radius:14px;
+    border:2px solid #e4e0f5;
+    background:#f8f7fd;
+    color:var(--ink);
+    font-size:1rem;
+    font-weight:700;
+    text-align:center;
+    font-family:inherit;
+  }
+  #playerNameInput:focus{outline:none; border-color:var(--accent-2);}
+  #playerNameInput::placeholder{color:#a8a2c8; font-weight:600;}
+
+  #gameOverCard .scoreLine{
+    font-size:2.6rem; font-weight:900; color:var(--ink); margin:4px 0 0;
+  }
+  #gameOverCard .scoreLabel{font-size:0.8rem; font-weight:700; color:#8a83b0; letter-spacing:1px;}
+  #coinLine{font-size:1.1rem; font-weight:800; color:var(--ink); margin:6px 0 2px;}
+  #bestLine{font-size:0.95rem; font-weight:700; color:#ff6b9d; margin:6px 0 22px;}
+
+  #shareBtn{
+    margin-top:14px;
+    background:none;
+    border:2px solid #d9d5f0;
+    color:#6b6490;
+    border-radius:14px;
+    padding:10px 20px;
+    font-weight:700;
+    font-size:0.85rem;
+    cursor:pointer;
+  }
+  #shareBtn.copied{border-color:#4ecdc4; color:#2e8b84;}
+
+  #pauseScreen .card{max-width:340px;}
+  #resumeBtn{width:100%;}
+  #restartFromPauseBtn{
+    margin-top:12px;
+    background:none;
+    border:2px solid #d9d5f0;
+    color:#6b6490;
+    border-radius:14px;
+    padding:12px 20px;
+    font-weight:700;
+    font-size:0.9rem;
+    cursor:pointer;
+    width:100%;
+  }
+
+  #flashMsg{
+    position:fixed;
+    top:22%;
+    left:50%;
+    transform:translate(-50%, -10px);
+    font-size:1.3rem;
+    font-weight:900;
+    color:#fff;
+    text-shadow:0 3px 0 rgba(0,0,0,0.25);
+    opacity:0;
+    pointer-events:none;
+    z-index:6;
+    transition:opacity 0.15s, transform 0.15s;
+    white-space:nowrap;
+  }
+  #flashMsg.show{opacity:1; transform:translate(-50%, 0);}
+
+  @media (max-width:420px){
+    .titleWord{font-size:1.9rem;}
+    .card{padding:28px 20px 24px;}
+    .controlChip{width:76px; padding:8px 10px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="canvasHolder"></div>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div class="hudLeft">
+    <div class="hudBox" id="scoreBox"><span>MESAFE</span>0 m</div>
+    <div class="hudBox" id="coinBox"><span>😄</span>0</div>
+  </div>
+  <div class="hudRight">
+    <button id="pauseBtn" aria-label="Duraklat">⏸</button>
+    <div class="hudBox" id="speedBox"><span>HIZ</span>x1.0</div>
+  </div>
+</div>
+
+<div id="flashMsg"></div>
+
+<!-- Start Screen -->
+<div id="startScreen" class="overlay">
+  <div class="card">
+    <p class="titleWord">[Kardeşinin Adı] RUNNER</p>
+    <p class="subtitle">Koş, atla, gülen yüzleri topla!</p>
+    <div class="controlsRow">
+      <div class="controlChip"><span class="icon">⬅️➡️</span>Şerit değiştir (ok tuşları / kaydır)</div>
+      <div class="controlChip"><span class="icon">⬆️</span>Zıpla (yukarı ok / space / dokun)</div>
+    </div>
+    <input type="text" id="playerNameInput" placeholder="Adını yaz (opsiyonel)" maxlength="14">
+    <button class="bigBtn" id="startBtn">BAŞLA</button>
+  </div>
+</div>
+
+<!-- Game Over Screen -->
+<div id="gameOverScreen" class="overlay hidden">
+  <div class="card" id="gameOverCard">
+    <p class="titleWord" style="font-size:1.6rem;">OYUN BİTTİ</p>
+    <p class="scoreLabel">SKORUN</p>
+    <p class="scoreLine" id="finalScore">0 m</p>
+    <p id="coinLine">😄 0 tane topladın</p>
+    <p id="bestLine">En yüksek: 0 m</p>
+    <button class="bigBtn alt" id="restartBtn">TEKRAR OYNA</button>
+    <br>
+    <button id="shareBtn">📋 Skoru kopyala</button>
+  </div>
+</div>
+
+<!-- Pause Screen -->
+<div id="pauseScreen" class="overlay hidden">
+  <div class="card">
+    <p class="titleWord" style="font-size:1.8rem;">DURAKLATILDI</p>
+    <p class="subtitle">Ne zaman hazırsan devam et</p>
+    <button class="bigBtn" id="resumeBtn">DEVAM ET</button>
+    <button id="restartFromPauseBtn">🔄 Baştan başla</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  /* ============================================================
+     TUNABLE GAME CONSTANTS — buraları değiştirerek oyunu
+     kolayca ayarlayabilirsin.
+     ============================================================ */
+  const CFG = {
+    LANE_WIDTH: 2.6,             // şeritler arası mesafe
+    LANE_COUNT: 3,
+    PLAYER_Z: 0,                 // oyuncunun sabit z konumu (kamera bunu takip eder)
+    BASE_SPEED: 11,              // başlangıç ileri hız (birim/sn)
+    MAX_SPEED: 32,               // ulaşılabilecek maksimum hız
+    SPEED_RAMP_PER_SEC: 0.09,    // her saniye hıza eklenen miktar (zorluk artışı)
+    LANE_CHANGE_SPEED: 12,       // şerit değiştirme animasyon hızı
+    JUMP_HEIGHT: 3.1,
+    JUMP_DURATION: 0.72,         // saniye
+    OBSTACLE_MIN_GAP: 9,         // ardışık engel grupları arası min mesafe (hıza göre ölçeklenir)
+    OBSTACLE_MAX_GAP: 15,
+    SPAWN_DISTANCE_AHEAD: 90,    // oyuncunun ne kadar ilerisine kadar üretim yapılsın
+    DESPAWN_BEHIND: 12,
+    SWIPE_THRESHOLD: 32,         // px
+    COIN_SPAWN_CHANCE: 0.55,     // her boşluk grubunda para dizisi çıkma olasılığı
+    COIN_ROW_COUNT: 4,           // bir dizide kaç tane emoji para olsun
+    COIN_ROW_SPACING: 2.1,       // dizideki paralar arası mesafe
+  };
+
+  /* ============================================================
+     THREE.JS TEMEL KURULUM
+     ============================================================ */
+  const holder = document.getElementById('canvasHolder');
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0xd66aa8, 22, 75);
+
+  const camera = new THREE.PerspectiveCamera(62, window.innerWidth/window.innerHeight, 0.1, 200);
+  camera.position.set(0, 5.4, 9.2);
+  camera.lookAt(0, 1.4, -8);
+
+  const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+  renderer.setClearColor(0x000000, 0); // şeffaf arka plan — sayfadaki gökyüzü gradyanı arkadan görünsün, siyah kalmasın
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 760;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = !isMobile; // gölgeleri mobilde kapat (performans)
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  holder.appendChild(renderer.domElement);
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  /* ---- Işıklandırma ---- */
+  const hemi = new THREE.HemisphereLight(0xfff2d6, 0x8b5a9e, 1.05);
+  scene.add(hemi);
+  const sun = new THREE.DirectionalLight(0xffe9b0, 1.1);
+  sun.position.set(-6, 12, 6);
+  if(!isMobile){
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024,1024);
+    sun.shadow.camera.left = -14; sun.shadow.camera.right = 14;
+    sun.shadow.camera.top = 14; sun.shadow.camera.bottom = -14;
+    sun.shadow.camera.far = 40;
+  }
+  scene.add(sun);
+
+  /* ============================================================
+     ZEMİN (sonsuz görünüm veren kayan şeritler)
+     ============================================================ */
+  const roadGroup = new THREE.Group();
+  scene.add(roadGroup);
+
+  const ROAD_SEGMENT_LEN = 20;
+  const ROAD_SEGMENTS = 6;
+  const roadWidth = CFG.LANE_WIDTH * CFG.LANE_COUNT + 2.2;
+  const roadSegs = [];
+
+  function makeStripeTexture(){
+    const c = document.createElement('canvas');
+    c.width = 64; c.height = 256;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#5b3a73';
+    ctx.fillRect(0,0,64,256);
+    ctx.fillStyle = '#6f4a89';
+    for(let i=0;i<4;i++){
+      ctx.fillRect(0, i*64, 64, 30);
+    }
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(21, 0); ctx.lineTo(21,256); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(43,0); ctx.lineTo(43,256); ctx.stroke();
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return tex;
+  }
+  const roadTex = makeStripeTexture();
+  roadTex.repeat.set(1, 6);
+
+  const roadMat = new THREE.MeshStandardMaterial({ map: roadTex, roughness:0.95 });
+  const sideMat = new THREE.MeshStandardMaterial({ color:0x7a4fa0, roughness:1 });
+
+  for(let i=0;i<ROAD_SEGMENTS;i++){
+    const seg = new THREE.Group();
+    const roadGeo = new THREE.PlaneGeometry(roadWidth, ROAD_SEGMENT_LEN);
+    const roadMesh = new THREE.Mesh(roadGeo, roadMat);
+    roadMesh.rotation.x = -Math.PI/2;
+    roadMesh.receiveShadow = true;
+    seg.add(roadMesh);
+
+    // yan şeritler (grass benzeri dekor)
+    const leftSide = new THREE.Mesh(new THREE.BoxGeometry(6, 0.4, ROAD_SEGMENT_LEN), sideMat);
+    leftSide.position.set(-roadWidth/2 - 3, -0.2, 0);
+    leftSide.receiveShadow = true;
+    seg.add(leftSide);
+    const rightSide = leftSide.clone();
+    rightSide.position.x = roadWidth/2 + 3;
+    seg.add(rightSide);
+
+    seg.position.z = -i * ROAD_SEGMENT_LEN;
+    roadGroup.add(seg);
+    roadSegs.push(seg);
+  }
+
+  /* ============================================================
+     ORTAK MALZEMELER (kız + erkek figürleri için)
+     ============================================================ */
+  const paleSkinMat = new THREE.MeshStandardMaterial({ color:0xffe0c9, roughness:0.55 });
+  const blackHairMat = new THREE.MeshStandardMaterial({ color:0x18141f, roughness:0.4 });
+  const blackClothMat = new THREE.MeshStandardMaterial({ color:0x201d29, roughness:0.65 });
+  const skirtMat = new THREE.MeshStandardMaterial({ color:0xff4d8d, roughness:0.55 });
+  const girlTopMat = new THREE.MeshStandardMaterial({ color:0x4ecdc4, roughness:0.55 });
+  const shoeMat = new THREE.MeshStandardMaterial({ color:0x111111, roughness:0.5 });
+
+  // Erkek engel figürleri için görünüm çeşitleri: hepsi beyaz tenli, saç rengi/tişört/pantolon
+  // rengi ve boy (kısa/normal/uzun) değişkenlik gösterir.
+  const MALE_SKIN = 0xffe0c9; // hepsi beyaz ten
+  const maleHairColors  = { blonde:0xf4c542, ginger:0xff8c3d, black:0x18141f };
+  const maleShirtColors = [0x2c3e5c, 0x5c2c2c, 0x2f7a4f, 0xd9a441, 0x6c3fa0, 0x3aa6a6];
+  const malePantsColors = [0x201d29, 0x3b3f52, 0x4a3728, 0x25405c];
+  const maleHeights = { short:0.72, normal:1.0, tall:1.3 };
+  function matCache(){ const c = new Map(); return (hex)=>{ if(!c.has(hex)) c.set(hex, new THREE.MeshStandardMaterial({color:hex, roughness:0.55})); return c.get(hex); }; }
+  const getHairMat = matCache();
+  const getShirtMat = matCache();
+  const getPantsMat = matCache();
+  const maleSkinMat = new THREE.MeshStandardMaterial({ color:MALE_SKIN, roughness:0.55 });
+
+  // Sekiz sabit karakter tanımı: boy + saç + tişört + pantolon kombinasyonu farklı,
+  // havuzlama (pooling) için sabit index'lerle eşleşiyor.
+  const MALE_VARIANTS = [
+    { height:'short',  hair:'blonde', shirt:maleShirtColors[0], pants:malePantsColors[0] },
+    { height:'normal', hair:'ginger', shirt:maleShirtColors[1], pants:malePantsColors[1] },
+    { height:'tall',   hair:'black',  shirt:maleShirtColors[2], pants:malePantsColors[2] },
+    { height:'short',  hair:'black',  shirt:maleShirtColors[3], pants:malePantsColors[0] },
+    { height:'normal', hair:'blonde', shirt:maleShirtColors[4], pants:malePantsColors[3] },
+    { height:'tall',   hair:'ginger', shirt:maleShirtColors[5], pants:malePantsColors[1] },
+    { height:'normal', hair:'black',  shirt:maleShirtColors[0], pants:malePantsColors[2] },
+    { height:'short',  hair:'ginger', shirt:maleShirtColors[2], pants:malePantsColors[0] },
+  ];
+
+  /* ============================================================
+     OYUNCU KARAKTER — beyaz tenli, siyah at kuyruklu saçlı,
+     etek giymiş kız çocuğu
+     ============================================================ */
+  const player = new THREE.Group();
+
+  // Etek (flare cylinder - üstü dar, altı geniş)
+  const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.46, 0.55, 12), skirtMat);
+  skirt.position.y = 0.72;
+  skirt.castShadow = true;
+  player.add(skirt);
+
+  // Üst (tişört/bluz)
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.34), girlTopMat);
+  torso.position.y = 1.16;
+  torso.castShadow = true;
+  player.add(torso);
+
+  // Bacaklar (etek altından görünen, dize kadar)
+  const legGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.42, 8);
+  const legL = new THREE.Mesh(legGeo, paleSkinMat);
+  legL.position.set(-0.14, 0.24, 0);
+  legL.castShadow = true;
+  const legR = legL.clone();
+  legR.position.x = 0.14;
+  player.add(legL, legR);
+
+  // Ayakkabılar
+  const shoeGeo = new THREE.BoxGeometry(0.16, 0.12, 0.24);
+  const shoeL = new THREE.Mesh(shoeGeo, shoeMat);
+  shoeL.position.set(-0.14, 0.03, 0.03);
+  const shoeR = shoeL.clone();
+  shoeR.position.x = 0.14;
+  player.add(shoeL, shoeR);
+
+  // Kollar
+  const armGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.46, 8);
+  const armL = new THREE.Mesh(armGeo, paleSkinMat);
+  armL.position.set(-0.33, 1.18, 0);
+  armL.castShadow = true;
+  const armR = armL.clone();
+  armR.position.x = 0.33;
+  player.add(armL, armR);
+
+  // Kafa
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 16), paleSkinMat);
+  head.position.y = 1.58;
+  head.castShadow = true;
+  player.add(head);
+
+  // Saç (kafayı kaplayan kısım)
+  const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.255, 16, 16, 0, Math.PI*2, 0, Math.PI*0.62), blackHairMat);
+  hairCap.position.y = 1.62;
+  hairCap.castShadow = true;
+  player.add(hairCap);
+
+  // At kuyruğu (arkaya doğru uzanan koni)
+  const ponytail = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.5, 8), blackHairMat);
+  ponytail.position.set(0, 1.48, -0.24);
+  ponytail.rotation.x = Math.PI * 0.62;
+  ponytail.castShadow = true;
+  player.add(ponytail);
+
+  player.position.set(0, 0, CFG.PLAYER_Z);
+  scene.add(player);
+
+  const playerLimbs = { legL, legR, armL, armR, ponytail };
+
+  /* ============================================================
+     ENGELLER — beyaz tenli erkek figürleri: boy (kısa/normal/uzun),
+     saç rengi (sarı/turuncu/siyah), tişört ve pantolon rengi çeşitli
+     ============================================================ */
+  const obstaclePool = [];
+  const activeObstacles = [];
+
+  function buildMaleFigure(variantIdx){
+    const def = MALE_VARIANTS[variantIdx];
+    const heightMul = maleHeights[def.height];
+    const hairMat = getHairMat(maleHairColors[def.hair]);
+    const shirtMat = getShirtMat(def.shirt);
+    const pantsMat = getPantsMat(def.pants);
+
+    const g = new THREE.Group();
+
+    // Boy farkı bacak + gövde uzunluğuna yansıyor, genişlik sabit kalıyor
+    const torsoW = 0.56;
+    const torsoH = 0.74 * heightMul;
+    const torsoD = 0.36;
+    const legLen = 0.62 * heightMul;
+    const headR = 0.3 * (0.94 + heightMul*0.06); // kafa boyutu hafifçe boya göre ölçekleniyor
+
+    const legY = legLen/2;
+    const torsoY = legLen + torsoH/2;
+    const headY = legLen + torsoH + headR*0.92;
+
+    // Bacaklar (pantolon — renk çeşitli)
+    const legGeo = new THREE.BoxGeometry(0.22, legLen, 0.26);
+    const legL = new THREE.Mesh(legGeo, pantsMat);
+    legL.position.set(-0.15, legY, 0);
+    legL.castShadow = true;
+    const legR = legL.clone();
+    legR.position.x = 0.15;
+    g.add(legL, legR);
+
+    // Ayakkabılar
+    const shoeGeo2 = new THREE.BoxGeometry(0.2, 0.12, 0.3);
+    const shoeL2 = new THREE.Mesh(shoeGeo2, shoeMat);
+    shoeL2.position.set(-0.15, 0.06, 0.03);
+    const shoeR2 = shoeL2.clone();
+    shoeR2.position.x = 0.15;
+    g.add(shoeL2, shoeR2);
+
+    // Gövde (tişört — renk çeşitli)
+    const torsoMesh = new THREE.Mesh(new THREE.BoxGeometry(torsoW, torsoH, torsoD), shirtMat);
+    torsoMesh.position.y = torsoY;
+    torsoMesh.castShadow = true;
+    g.add(torsoMesh);
+
+    // Kollar (hepsi beyaz ten)
+    const armGeo2 = new THREE.BoxGeometry(0.16, torsoH*0.85, 0.18);
+    const armL2 = new THREE.Mesh(armGeo2, maleSkinMat);
+    armL2.position.set(-(torsoW/2 + 0.11), torsoY + 0.02, 0);
+    armL2.castShadow = true;
+    const armR2 = armL2.clone();
+    armR2.position.x = (torsoW/2 + 0.11);
+    g.add(armL2, armR2);
+
+    // Kafa (hepsi beyaz ten)
+    const headMesh = new THREE.Mesh(new THREE.SphereGeometry(headR, 14, 14), maleSkinMat);
+    headMesh.position.y = headY;
+    headMesh.castShadow = true;
+    g.add(headMesh);
+
+    // Saç (sarı / turuncu / siyah)
+    const hairMesh = new THREE.Mesh(new THREE.SphereGeometry(headR*1.08, 14, 14, 0, Math.PI*2, 0, Math.PI*0.58), hairMat);
+    hairMesh.position.y = headY + headR*0.12;
+    hairMesh.castShadow = true;
+    g.add(hairMesh);
+
+    const totalHeight = legLen + torsoH + headR*2;
+    g.userData.height = totalHeight;
+    g.userData.halfWidth = (torsoW/2) + 0.12;
+    g.userData.type = variantIdx;
+    return g;
+  }
+
+  function getObstacle(type){
+    let m = obstaclePool.find(o => !o.visible && o.userData.type === type);
+    if(!m){
+      m = buildMaleFigure(type);
+      obstaclePool.push(m);
+      scene.add(m);
+    }
+    m.visible = true;
+    return m;
+  }
+
+  // 4 farklı görünüm varyasyonu (hepsi aynı boyda)
+  // 8 farklı sabit karakter kombinasyonu (boy + saç + tişört + pantolon)
+  const OBSTACLE_TYPES = [0, 1, 2, 3, 4, 5, 6, 7];
+
+  function laneX(laneIndex){
+    return (laneIndex - 1) * CFG.LANE_WIDTH;
+  }
+
+  /* Bir sonraki engel grubunun z konumu (oyuncudan uzakta, negatif z) */
+  let nextSpawnZ = -30;
+
+  function spawnObstacleGroup(){
+    // Şeritlerden en az biri her zaman açık kalmalı
+    const blockedCount = 1 + Math.floor(Math.random()*2); // 1 veya 2 şerit kapansın
+    const lanes = [0,1,2];
+    for(let i=lanes.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [lanes[i],lanes[j]] = [lanes[j],lanes[i]];
+    }
+    const blockedLanes = lanes.slice(0, blockedCount);
+    const openLanes = lanes.slice(blockedCount);
+
+    blockedLanes.forEach(laneIdx => {
+      const type = OBSTACLE_TYPES[Math.floor(Math.random()*OBSTACLE_TYPES.length)];
+      const mesh = getObstacle(type);
+      mesh.position.x = laneX(laneIdx);
+      mesh.position.z = nextSpawnZ;
+      mesh.userData.passed = false;
+      activeObstacles.push(mesh);
+    });
+
+    // Açık şeritlerden birine emoji para dizisi yerleştir
+    if(openLanes.length > 0 && Math.random() < CFG.COIN_SPAWN_CHANCE){
+      const coinLane = openLanes[Math.floor(Math.random()*openLanes.length)];
+      spawnCoinRow(coinLane, nextSpawnZ - 4);
+    }
+
+    const gapRange = CFG.OBSTACLE_MAX_GAP - CFG.OBSTACLE_MIN_GAP;
+    nextSpawnZ -= CFG.OBSTACLE_MIN_GAP + Math.random()*gapRange;
+  }
+
+  function resetObstacles(){
+    activeObstacles.forEach(o => o.visible = false);
+    activeObstacles.length = 0;
+    resetCoins();
+    nextSpawnZ = -30;
+    for(let z = -30; z > -CFG.SPAWN_DISTANCE_AHEAD; ){
+      spawnObstacleGroup();
+      z = nextSpawnZ;
+    }
+  }
+
+  /* ============================================================
+     TOPLANABİLİR PARALAR — gülen yüz emojisi (😄) sprite'ları
+     ============================================================ */
+  function makeEmojiTexture(emoji){
+    const c = document.createElement('canvas');
+    c.width = 192; c.height = 192;
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0,0,192,192);
+    ctx.font = '150px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(emoji, 96, 106);
+    const tex = new THREE.CanvasTexture(c);
+    tex.needsUpdate = true;
+    return tex;
+  }
+  const coinTexture = makeEmojiTexture('😄');
+  const coinSpriteMat = new THREE.SpriteMaterial({ map: coinTexture, transparent:true });
+
+  const coinPool = [];
+  const activeCoins = [];
+
+  function getCoin(){
+    let s = coinPool.find(c => !c.visible);
+    if(!s){
+      s = new THREE.Sprite(coinSpriteMat);
+      s.scale.set(0.95, 0.95, 0.95);
+      coinPool.push(s);
+      scene.add(s);
+    }
+    s.visible = true;
+    return s;
+  }
+
+  function spawnCoinRow(laneIdx, startZ){
+    for(let i=0;i<CFG.COIN_ROW_COUNT;i++){
+      const s = getCoin();
+      s.position.set(laneX(laneIdx), 1.1, startZ - i*CFG.COIN_ROW_SPACING);
+      s.userData.baseY = 1.1;
+      s.userData.bob = Math.random()*Math.PI*2;
+      activeCoins.push(s);
+    }
+  }
+
+  function resetCoins(){
+    activeCoins.forEach(c => c.visible = false);
+    activeCoins.length = 0;
+  }
+
+  /* ============================================================
+     GİRDİ (klavye + dokunmatik)
+     ============================================================ */
+  let currentLane = 1; // 0=sol,1=orta,2=sağ
+  let targetX = 0;
+  let isJumping = false;
+  let jumpT = 0;
+
+  function tryChangeLane(dir){
+    if(gameState !== 'playing') return;
+    const newLane = currentLane + dir;
+    if(newLane >= 0 && newLane <= 2){
+      currentLane = newLane;
+      targetX = laneX(currentLane);
+    }
+  }
+
+  function tryJump(){
+    if(!isJumping && gameState === 'playing'){
+      isJumping = true;
+      jumpT = 0;
+    }
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape' || e.key === 'p' || e.key === 'P'){
+      togglePause();
+      return;
+    }
+    if(gameState !== 'playing') return;
+    if(e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') tryChangeLane(-1);
+    else if(e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') tryChangeLane(1);
+    else if(e.key === 'ArrowUp' || e.key === ' ' || e.key === 'w' || e.key === 'W'){ e.preventDefault(); tryJump(); }
+  });
+
+  // Dokunmatik: tüm ekran swipe alanı
+  let touchStartX = 0, touchStartY = 0, touchActive = false;
+  window.addEventListener('touchstart', (e) => {
+    if(e.target.closest('button') || e.target.closest('input')) return;
+    touchActive = true;
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, {passive:true});
+
+  window.addEventListener('touchmove', (e) => {
+    if(touchActive) e.preventDefault();
+  }, {passive:false});
+
+  window.addEventListener('touchend', (e) => {
+    if(!touchActive) return;
+    touchActive = false;
+    const dx = (e.changedTouches[0].clientX - touchStartX);
+    const dy = (e.changedTouches[0].clientY - touchStartY);
+    if(Math.abs(dx) < CFG.SWIPE_THRESHOLD && Math.abs(dy) < CFG.SWIPE_THRESHOLD){
+      // basit dokunuş = zıpla
+      tryJump();
+      return;
+    }
+    if(Math.abs(dx) > Math.abs(dy)){
+      if(dx > 0) tryChangeLane(1); else tryChangeLane(-1);
+    } else {
+      if(dy < 0) tryJump();
+    }
+  }, {passive:true});
+
+  /* ============================================================
+     OYUN DURUMU
+     ============================================================ */
+  let gameState = 'idle'; // idle | playing | gameover
+  let speed = CFG.BASE_SPEED;
+  let distance = 0;
+  let elapsed = 0;
+  let coinsCollected = 0;
+  let playerName = '';
+  let bestScore = parseInt(localStorage.getItem('runnerBestScore') || '0', 10);
+
+  const scoreBoxEl = document.getElementById('scoreBox');
+  const coinBoxEl = document.getElementById('coinBox');
+  const speedBoxEl = document.getElementById('speedBox');
+  const hud = document.getElementById('hud');
+  const startScreen = document.getElementById('startScreen');
+  const gameOverScreen = document.getElementById('gameOverScreen');
+  const pauseScreen = document.getElementById('pauseScreen');
+  const finalScoreEl = document.getElementById('finalScore');
+  const coinLineEl = document.getElementById('coinLine');
+  const bestLineEl = document.getElementById('bestLine');
+  const flashMsg = document.getElementById('flashMsg');
+  const playerNameInput = document.getElementById('playerNameInput');
+
+  // Daha önce girilmiş bir isim varsa hatırla ve kutuya doldur
+  const savedName = localStorage.getItem('runnerPlayerName');
+  if(savedName) playerNameInput.value = savedName;
+
+  function coinLabelHTML(){
+    return playerName ? ('<span>' + playerName + ' 😄</span>') : '<span>😄</span>';
+  }
+
+  function showFlash(text){
+    flashMsg.textContent = text;
+    flashMsg.classList.add('show');
+    clearTimeout(showFlash._t);
+    showFlash._t = setTimeout(()=> flashMsg.classList.remove('show'), 900);
+  }
+
+  function startGame(){
+    playerName = playerNameInput.value.trim().slice(0, 14);
+    if(playerName) localStorage.setItem('runnerPlayerName', playerName);
+    coinBoxEl.innerHTML = coinLabelHTML() + '0';
+
+    gameState = 'playing';
+    speed = CFG.BASE_SPEED;
+    distance = 0;
+    elapsed = 0;
+    coinsCollected = 0;
+    currentLane = 1;
+    targetX = 0;
+    isJumping = false;
+    jumpT = 0;
+    player.position.x = 0;
+    player.position.y = 0;
+
+    resetObstacles();
+
+    startScreen.classList.add('hidden');
+    gameOverScreen.classList.add('hidden');
+    pauseScreen.classList.add('hidden');
+    hud.classList.remove('hidden');
+  }
+
+  function endGame(){
+    gameState = 'gameover';
+    const finalDist = Math.floor(distance);
+    if(finalDist > bestScore){
+      bestScore = finalDist;
+      localStorage.setItem('runnerBestScore', String(bestScore));
+    }
+    finalScoreEl.textContent = finalDist + ' m';
+    coinLineEl.textContent = (playerName ? playerName + ' — ' : '') + '😄 ' + coinsCollected + ' tane topladın';
+    bestLineEl.textContent = 'En yüksek: ' + bestScore + ' m';
+    hud.classList.add('hidden');
+    gameOverScreen.classList.remove('hidden');
+  }
+
+  function togglePause(){
+    if(gameState === 'playing'){
+      gameState = 'paused';
+      pauseScreen.classList.remove('hidden');
+    } else if(gameState === 'paused'){
+      gameState = 'playing';
+      pauseScreen.classList.add('hidden');
+    }
+    // idle/gameover durumlarında duraklatma anlamsız, yok say
+  }
+
+  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('restartBtn').addEventListener('click', startGame);
+  document.getElementById('pauseBtn').addEventListener('click', togglePause);
+  document.getElementById('resumeBtn').addEventListener('click', togglePause);
+  document.getElementById('restartFromPauseBtn').addEventListener('click', () => {
+    pauseScreen.classList.add('hidden');
+    startGame();
+  });
+
+  document.getElementById('shareBtn').addEventListener('click', () => {
+    const finalDist = Math.floor(distance);
+    const text = finalDist + ' metre koştum ve ' + coinsCollected + ' tane 😄 topladım, sen dene!';
+    if(navigator.clipboard){
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById('shareBtn');
+        btn.textContent = '✅ Kopyalandı!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = '📋 Skoru kopyala';
+          btn.classList.remove('copied');
+        }, 1500);
+      });
+    }
+  });
+
+  /* ============================================================
+     ÇARPIŞMA VE TOPLAMA KONTROLÜ
+     ============================================================ */
+  const PLAYER_HALF_WIDTH = 0.3;
+
+  function checkCollisions(){
+    for(let i=0;i<activeObstacles.length;i++){
+      const obs = activeObstacles[i];
+      if(!obs.visible) continue;
+      const dz = Math.abs(obs.position.z - player.position.z);
+      if(dz < 0.7){
+        const dx = Math.abs(obs.position.x - player.position.x);
+        const halfW = obs.userData.halfWidth || 0.5;
+        if(dx < PLAYER_HALF_WIDTH + halfW){
+          const obsHeight = obs.userData.height;
+          const playerBottom = player.position.y;
+          const playerTop = player.position.y + 1.7;
+          const obsBottom = 0;
+          const obsTop = obsHeight;
+          const overlap = !(playerBottom > obsTop - 0.15 || playerTop < obsBottom + 0.1);
+          if(overlap){
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  function checkCoinPickups(){
+    for(let i=activeCoins.length-1;i>=0;i--){
+      const coin = activeCoins[i];
+      if(!coin.visible) continue;
+      const dz = Math.abs(coin.position.z - player.position.z);
+      const dx = Math.abs(coin.position.x - player.position.x);
+      if(dz < 0.6 && dx < 0.5){
+        coin.visible = false;
+        activeCoins.splice(i,1);
+        coinsCollected++;
+        coinBoxEl.innerHTML = coinLabelHTML() + coinsCollected;
+      }
+    }
+  }
+
+  /* ============================================================
+     ANA DÖNGÜ
+     ============================================================ */
+  const clock = new THREE.Clock();
+  let lastFlashDistance = 0;
+
+  function animate(){
+    requestAnimationFrame(animate);
+    const dt = Math.min(clock.getDelta(), 0.05);
+
+    if(gameState === 'playing'){
+      elapsed += dt;
+
+      // Hız zamanla artar (zorluk artışı)
+      speed = Math.min(CFG.MAX_SPEED, CFG.BASE_SPEED + elapsed * CFG.SPEED_RAMP_PER_SEC * 10);
+
+      distance += speed * dt;
+
+      // Şerit geçişi (yumuşak)
+      player.position.x += (targetX - player.position.x) * Math.min(1, CFG.LANE_CHANGE_SPEED * dt);
+      // Hafif eğilme efekti şerit değiştirirken
+      const leanAmount = (targetX - player.position.x) * -0.12;
+      player.rotation.z = leanAmount;
+
+      // Zıplama
+      if(isJumping){
+        jumpT += dt;
+        const p = Math.min(jumpT / CFG.JUMP_DURATION, 1);
+        const h = Math.sin(p * Math.PI) * CFG.JUMP_HEIGHT * 0.55;
+        player.position.y = h;
+        player.rotation.x = Math.sin(p*Math.PI) * -0.3;
+        if(p >= 1){
+          isJumping = false;
+          player.position.y = 0;
+          player.rotation.x = 0;
+        }
+      } else {
+        // koşu animasyonu (basit yukarı-aşağı bobbing + kol/bacak sallanma + at kuyruğu sallanması)
+        const runCycle = elapsed * (8 + speed*0.35);
+        player.position.y = Math.abs(Math.sin(runCycle)) * 0.09;
+        playerLimbs.legL.rotation.x = Math.sin(runCycle) * 0.7;
+        playerLimbs.legR.rotation.x = -Math.sin(runCycle) * 0.7;
+        playerLimbs.armL.rotation.x = -Math.sin(runCycle) * 0.6;
+        playerLimbs.armR.rotation.x = Math.sin(runCycle) * 0.6;
+        playerLimbs.ponytail.rotation.z = Math.sin(runCycle*0.9) * 0.25;
+      }
+
+      // Zemin segmentlerini kaydır (oyuncu yerinde durur, dünya kayar hissi)
+      roadSegs.forEach(seg => {
+        seg.position.z += speed * dt;
+        if(seg.position.z > ROAD_SEGMENT_LEN * 1.5){
+          seg.position.z -= ROAD_SEGMENT_LEN * ROAD_SEGMENTS;
+        }
+      });
+      roadTex.offset.y -= (speed*dt) * 0.05;
+
+      // Engelleri oyuncuya doğru kaydır
+      for(let i=activeObstacles.length-1;i>=0;i--){
+        const obs = activeObstacles[i];
+        obs.position.z += speed * dt;
+        if(obs.position.z > CFG.DESPAWN_BEHIND){
+          obs.visible = false;
+          activeObstacles.splice(i,1);
+        }
+      }
+
+      // Paraları oyuncuya doğru kaydır + hafifçe döndür/salla
+      for(let i=activeCoins.length-1;i>=0;i--){
+        const coin = activeCoins[i];
+        coin.position.z += speed * dt;
+        coin.userData.bob += dt*4;
+        coin.position.y = coin.userData.baseY + Math.sin(coin.userData.bob)*0.12;
+        if(coin.position.z > CFG.DESPAWN_BEHIND){
+          coin.visible = false;
+          activeCoins.splice(i,1);
+        }
+      }
+
+      // Yeni engel/para grupları üret
+      while(nextSpawnZ > -CFG.SPAWN_DISTANCE_AHEAD){
+        spawnObstacleGroup();
+      }
+      nextSpawnZ += speed * dt;
+
+      // Çarpışma ve toplama kontrolü
+      if(checkCollisions()){
+        endGame();
+      }
+      checkCoinPickups();
+
+      // HUD güncelle
+      const distInt = Math.floor(distance);
+      scoreBoxEl.innerHTML = '<span>MESAFE</span>' + distInt + ' m';
+      speedBoxEl.innerHTML = '<span>HIZ</span>x' + (speed/CFG.BASE_SPEED).toFixed(1);
+
+      // Ara sıra eğlenceli mesaj
+      if(distInt - lastFlashDistance >= 60 && distInt > 0){
+        lastFlashDistance = distInt;
+        const msgs = ['Harika gidiyorsun!', 'Yakın kaçış!', 'Devam et!', 'Süpersin!', 'Daha hızlı!'];
+        showFlash(msgs[Math.floor(Math.random()*msgs.length)]);
+      }
+    }
+
+    renderer.render(scene, camera);
+  }
+
+  animate();
+})();
+</script>
+</body>
+</html>
